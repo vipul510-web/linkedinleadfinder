@@ -29,7 +29,10 @@ SMTP_USER = os.getenv("SMTP_USER")
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
 EMAIL_TO = os.getenv("EMAIL_TO")
 
-# Lead filter keywords - posts containing these are more likely "looking for help"
+# OpenAI - when set, uses LLM to classify leads (much more accurate than keyword filter)
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
+# Lead filter keywords - fallback when OPENAI_API_KEY not set (less accurate)
 LEAD_INDICATORS = [
     "looking for",
     "need help",

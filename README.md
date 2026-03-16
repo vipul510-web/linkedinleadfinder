@@ -4,9 +4,11 @@ Finds leads from LinkedIn posts where people are looking for solutions, using Ap
 
 ## How It Works
 
-1. **Searches** LinkedIn posts by keywords (e.g. "looking for recommendations", "need help with")
-2. **Filters** for posts that indicate someone is seeking a solution (lead indicators)
-3. **Emails** you the results with author info and post links
+1. **Searches** LinkedIn posts by your topic keywords (e.g. "AI Voice agents", "WhatsApp automation")
+2. **Filters** using OpenAI to classify: lead (seeking to buy/use) vs not lead (building/promoting)
+3. **Emails** you only the qualified leads with author info and post links
+
+**Lead classification:** With `OPENAI_API_KEY` set, an LLM distinguishes people *looking for* solutions from people *building or promoting* their own tools—much more accurate than keyword matching.
 
 ## Free Tier Limits (Apify)
 
@@ -48,6 +50,7 @@ Edit `.env` and add:
 
 ```
 APIFY_TOKEN=apify_api_xxxxxxxxxxxx
+OPENAI_API_KEY=sk-xxxxxxxxxxxx          # For accurate lead classification (recommended)
 SMTP_USER=your_email@gmail.com
 SMTP_PASSWORD=your_16_char_app_password
 EMAIL_TO=your_email@gmail.com
@@ -89,11 +92,14 @@ A workflow runs automatically every day at 9:00 AM UTC. Add these secrets in you
 | Secret | Required | Description |
 |--------|----------|-------------|
 | `APIFY_TOKEN` | Yes | Your Apify API token |
+| `OPENAI_API_KEY` | Yes* | OpenAI key for lead classification (recommended for accuracy) |
 | `SMTP_USER` | Yes | Sender email (e.g. your@gmail.com) |
 | `SMTP_PASSWORD` | Yes | Gmail App Password or SMTP password |
 | `EMAIL_TO` | Yes | Where to send leads |
 | `SMTP_HOST` | No | Default: smtp.gmail.com |
 | `SMTP_PORT` | No | Default: 587 |
+
+*Without `OPENAI_API_KEY`, falls back to keyword filter (less accurate—catches builders/promoters).
 
 You can also trigger a run manually: **Actions → LinkedIn Lead Finder → Run workflow**.
 
@@ -106,18 +112,10 @@ crontab -e
 # Add: 0 9 * * * cd /path/to/Linkedinscrapper && .venv/bin/python3 main.py
 ```
 
-## Customize Lead Indicators
+## Customize
 
-Edit `config.py` and modify `LEAD_INDICATORS` to match phrases that signal someone is looking for help:
-
-```python
-LEAD_INDICATORS = [
-    "looking for",
-    "need help",
-    "recommendations for",
-    # Add your own...
-]
-```
+- **Search topics:** Edit `SEARCH_KEYWORDS` in `config.py`
+- **Keyword filter (fallback):** Edit `LEAD_INDICATORS` when not using OpenAI
 
 ## Troubleshooting
 
@@ -125,5 +123,5 @@ LEAD_INDICATORS = [
 |-------|----------|
 | "APIFY_TOKEN not set" | Add token to `.env` |
 | Email not sending | Use Gmail App Password, not regular password |
-| No leads found | Try different keywords or add more indicators in config |
+| No leads found | Try different keywords; add OPENAI_API_KEY for better filtering |
 | Apify credits exhausted | Wait for monthly reset or upgrade plan |

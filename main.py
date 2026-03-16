@@ -3,14 +3,16 @@
 LinkedIn Lead Finder - Finds leads from LinkedIn posts and sends to email.
 
 Uses Apify's LinkedIn Posts Search Scraper (free tier compatible).
+Uses OpenAI to accurately classify leads vs builders/promoters when API key is set.
 """
 
+import json
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from pathlib import Path
 
 from apify_client import ApifyClient
+from openai import OpenAI
 
 from config import (
     APIFY_ACTOR,
@@ -19,6 +21,7 @@ from config import (
     FREE_TIER_MAX_KEYWORDS,
     FREE_TIER_MAX_POSTS_PER_KEYWORD,
     LEAD_INDICATORS,
+    OPENAI_API_KEY,
     SEARCH_KEYWORDS,
     SMTP_HOST,
     SMTP_PASSWORD,
@@ -67,9 +70,80 @@ def is_lead_post(post: dict) -> bool:
     return any(indicator in text for indicator in LEAD_INDICATORS)
 
 
-def filter_leads(posts: list[dict]) -> list[dict]:
-    """Filter posts to those that look like leads."""
+def filter_leads_keyword(posts: list[dict]) -> list[dict]:
+    """Filter posts using keyword matching (fallback when no OpenAI key)."""
     return [p for p in posts if is_lead_post(p)]
+
+
+def _get_post_text(post: dict) -> str:
+    """Extract text from post, truncated for LLM."""
+    text = (
+        post.get("text")
+        or post.get("post_text")
+        or post.get("postText")
+        or post.get("content")
+        or ""
+    )
+    return text[:800] if text else ""  # Limit tokens
+
+
+def filter_leads_llm(posts: list[dict], batch_size: int = 15) -> list[dict]:
+    """
+    Use OpenAI to classify posts: lead (seeking solution) vs not lead (building/promoting).
+    Much more accurate than keyword matching.
+    """
+    if not OPENAI_API_KEY:
+        return filter_leads_keyword(posts)
+
+    client = OpenAI()
+    leads = []
+
+    for i in range(0, len(posts), batch_size):
+        batch = posts[i : i + batch_size]
+        batch_texts = [
+            f"[{j+1}] {_get_post_text(p)}" for j, p in enumerate(batch)
+        ]
+        posts_block = "\n\n".join(batch_texts)
+
+        prompt = """You are a lead qualification expert. Classify each LinkedIn post below.
+
+LEAD = The person is SEEKING to buy, use, or hire a solution. They want recommendations, help finding a vendor, or are evaluating options.
+NOT A LEAD = The person is BUILDING, PROMOTING, or SHARING news about their own product. They're a vendor/seller, not a buyer.
+
+Examples of LEADS:
+- "Looking for recommendations for an AI voice agent"
+- "Need help choosing a WhatsApp automation tool for our team"
+- "Anyone know a good agency for WhatsApp automation?"
+
+Examples of NOT LEADS:
+- "We just launched our AI voice agent!"
+- "Building an AI voice agent - here's what we learned"
+- "Excited to share our new WhatsApp automation product"
+
+For each post, respond with a JSON object: {"results": [{"id": 1, "is_lead": true/false}, ...]}
+Use the [1], [2], etc. numbers as ids. Only include posts that are clearly LEADS."""
+
+        try:
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": prompt},
+                    {"role": "user", "content": f"Posts to classify:\n\n{posts_block}"},
+                ],
+                response_format={"type": "json_object"},
+            )
+            data = json.loads(response.choices[0].message.content)
+            results = {r["id"]: r["is_lead"] for r in data.get("results", [])}
+            for j, post in enumerate(batch):
+                if results.get(j + 1, False):
+                    leads.append(post)
+        except (json.JSONDecodeError, KeyError) as e:
+            print(f"LLM parse error for batch: {e}, skipping batch")
+        except Exception as e:
+            print(f"OpenAI API error: {e}, falling back to keyword filter for batch")
+            leads.extend(p for p in batch if is_lead_post(p))
+
+    return leads
 
 
 def format_post_for_email(post: dict) -> str:
@@ -143,9 +217,14 @@ def main(keywords: list[str] | None = None):
         print("No posts found. Try different keywords or check Apify credits.")
         return
 
-    # Filter for leads
-    leads = filter_leads(posts)
-    print(f"Found {len(leads)} potential leads (posts looking for solutions).")
+    # Filter for leads (LLM when available, else keyword fallback)
+    if OPENAI_API_KEY:
+        print("Using OpenAI to classify leads (seeking vs building/promoting)...")
+        leads = filter_leads_llm(posts)
+    else:
+        print("Using keyword filter (set OPENAI_API_KEY for more accurate LLM classification)...")
+        leads = filter_leads_keyword(posts)
+    print(f"Found {len(leads)} qualified leads.")
 
     # Build email
     if leads:
@@ -164,8 +243,9 @@ def main(keywords: list[str] | None = None):
     else:
         body = (
             f"LinkedIn Lead Finder ran successfully.\n\n"
-            f"Scraped {len(posts)} posts but none matched lead indicators.\n"
-            f"Try adding more keywords in config.LEAD_INDICATORS or different search terms."
+            f"Scraped {len(posts)} posts but none qualified as leads.\n"
+            f"If using keyword filter, try config.LEAD_INDICATORS. "
+            f"If using LLM, the posts may have been builders/promoters."
         )
         send_email(
             subject="LinkedIn Leads: No leads found this run",
