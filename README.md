@@ -4,18 +4,38 @@ Finds leads from LinkedIn posts where people are looking for solutions, using Ap
 
 ## How It Works
 
-1. **Searches** LinkedIn posts by your topic keywords (e.g. "AI Voice agents", "WhatsApp automation")
-2. **Filters** using OpenAI to classify: lead (seeking to buy/use) vs not lead (building/promoting)
-3. **Emails** you only the qualified leads with author info and post links
+1. **Searches** LinkedIn via Apify using `SEARCH_KEYWORDS` (max 4 per run on free tier).
+2. **Niche match:** Keeps posts whose body contains at least one phrase from `POST_MATCH_PHRASES` (case-insensitive substring)— tuned for WhatsApp API / automation intent.
+3. **Intent:** With `OPENAI_API_KEY`, an LLM scores buyer intent (looking for a solution) vs seller noise (promoting their own product). Without it, uses `LEAD_INDICATORS` + niche phrases.
+4. **Emails** qualified leads; each lead line lists which niche phrases matched.
 
-**Lead classification:** With `OPENAI_API_KEY` set, an LLM distinguishes people *looking for* solutions from people *building or promoting* their own tools—much more accurate than keyword matching.
+**Fine-tuning:** Edit `SEARCH_KEYWORDS` for discovery, `POST_MATCH_PHRASES` for post-level relevance, and `NICHE_CONTEXT` / examples in `main.py` for LLM behavior.
 
 ## Free Tier Limits (Apify)
 
 - **$5/month** in platform credits (no credit card required)
 - **4 keywords** per run, max **50 posts** per keyword
 - ~**200 posts per run** within free limits
-- At ~$1.20/1,000 posts: ~4,000 posts/month on free tier
+- At ~$1.20/1,000 posts: ~$5/month caps roughly **thousands** of scraped posts total — budget matters more than GitHub run count.
+
+### How often can you run?
+
+| Constraint | Practical note |
+|------------|----------------|
+| **GitHub Actions** | Public repos: generous fair-use on scheduled workflows. **Private repos**: included Actions minutes (~2,000 min/month free); each run is ~1–2 minutes (~700–1,400 runs/month budget). |
+| **Apify** | Each schedule still runs a full scrape — **cost scales with runs × posts**. Example: **12 runs/day** × ~200 posts ≈ **2,400 posts/day** billed — likely beyond **free $5/month** unless you lower `max_posts` / keywords or upgrade Apify. |
+| **LinkedIn date filter** | The actor only supports **`past-24h`**, **`past-week`**, **`past-month`** — there is **no native “past 2 hours.”** |
+
+### Fresh posts (~last 2 hours)
+
+Defaults in `config.py`:
+
+- **`DATE_FILTER`** — use **`past-24h`** (narrowest LinkedIn-side filter).
+- **`RECENT_POST_MAX_HOURS`** — **`2`** keeps only posts whose timestamp parses within the last 2 hours (after scrape).
+
+If **nothing passes** the 2-hour window, Apify items may omit usable timestamps. Set **`INCLUDE_POST_IF_DATE_MISSING=true`** in `.env` to keep undated posts (less strict), or set **`RECENT_POST_MAX_HOURS=0`** to turn off client-side recency filtering.
+
+Environment overrides (optional): `DATE_FILTER`, `RECENT_POST_MAX_HOURS`, `INCLUDE_POST_IF_DATE_MISSING`.
 
 ## Setup
 
@@ -83,9 +103,9 @@ Example:
 python main.py "looking for CRM" "need marketing agency" "recommendations for HR software"
 ```
 
-### GitHub Actions (daily run)
+### GitHub Actions (every 2 hours)
 
-A workflow runs automatically every day at 9:00 AM UTC. Add these secrets in your repo:
+The workflow runs on **`schedule`: every 2 hours UTC** (`0 */2 * * *`) and supports **Run workflow** manually. Add these secrets:
 
 **Settings → Secrets and variables → Actions → New repository secret**
 
@@ -112,10 +132,12 @@ crontab -e
 # Add: 0 9 * * * cd /path/to/Linkedinscrapper && .venv/bin/python3 main.py
 ```
 
-## Customize
+## Customize (`config.py`)
 
-- **Search topics:** Edit `SEARCH_KEYWORDS` in `config.py`
-- **Keyword filter (fallback):** Edit `LEAD_INDICATORS` when not using OpenAI
+- **`SEARCH_KEYWORDS`** — LinkedIn search queries Apify runs (rotate across runs to cover more angles; free tier = 4 per run).
+- **`POST_MATCH_PHRASES`** — Post must contain one of these substrings (exact phrase, case-insensitive).
+- **`NICHE_CONTEXT`** — One-line domain hint for the LLM.
+- **`LEAD_INDICATORS`** — Fallback buyer-intent keywords when OpenAI is disabled.
 
 ## Troubleshooting
 

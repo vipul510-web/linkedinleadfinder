@@ -1,8 +1,10 @@
 name: LinkedIn Lead Finder
 
 on:
+  schedule:
+    # Every 2 hours (UTC). Adjust cron if needed.
+    - cron: '0 */2 * * *'
   workflow_dispatch:
-    # Manual trigger only - run from Actions tab when needed
 
 jobs:
   find-leads:
