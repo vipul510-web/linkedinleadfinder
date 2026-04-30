@@ -23,17 +23,17 @@ Finds leads from LinkedIn posts where people are looking for solutions, using Ap
 | Constraint | Practical note |
 |------------|----------------|
 | **GitHub Actions** | Public repos: generous fair-use on scheduled workflows. **Private repos**: included Actions minutes (~2,000 min/month free); each run is ~1–2 minutes (~700–1,400 runs/month budget). |
-| **Apify** | Each schedule still runs a full scrape — **cost scales with runs × posts**. Example: **12 runs/day** × ~200 posts ≈ **2,400 posts/day** billed — likely beyond **free $5/month** unless you lower `max_posts` / keywords or upgrade Apify. |
-| **LinkedIn date filter** | The actor only supports **`past-24h`**, **`past-week`**, **`past-month`** — there is **no native “past 2 hours.”** |
+| **Apify** | Each schedule still runs a full scrape — **cost scales with runs × posts**. Example: **4 runs/day** × ~200 posts ≈ **800 posts/day** billed — still monitor monthly credits vs **free $5/month**. |
+| **LinkedIn date filter** | The actor only supports **`past-24h`**, **`past-week`**, **`past-month`** — there is **no native “past 6 hours”**; we scrape **`past-24h`** then keep posts newer than your **`RECENT_POST_MAX_HOURS`** when timestamps exist. |
 
-### Fresh posts (~last 2 hours)
+### Fresh posts (~last 6 hours)
 
-Defaults in `config.py`:
+Defaults in `config.py` (aligned with the GitHub schedule):
 
-- **`DATE_FILTER`** — use **`past-24h`** (narrowest LinkedIn-side filter).
-- **`RECENT_POST_MAX_HOURS`** — **`2`** keeps only posts whose timestamp parses within the last 2 hours (after scrape).
+- **`DATE_FILTER`** — **`past-24h`** (narrowest LinkedIn-side filter).
+- **`RECENT_POST_MAX_HOURS`** — **`6`** keeps only posts whose timestamp parses within the last 6 hours (after scrape).
 
-If **nothing passes** the 2-hour window, Apify items may omit usable timestamps. Set **`INCLUDE_POST_IF_DATE_MISSING=true`** in `.env` to keep undated posts (less strict), or set **`RECENT_POST_MAX_HOURS=0`** to turn off client-side recency filtering.
+If **nothing passes** the recency window, Apify items may omit usable timestamps. Set **`INCLUDE_POST_IF_DATE_MISSING=true`** in `.env` to keep undated posts (less strict), or set **`RECENT_POST_MAX_HOURS=0`** to turn off client-side recency filtering.
 
 Environment overrides (optional): `DATE_FILTER`, `RECENT_POST_MAX_HOURS`, `INCLUDE_POST_IF_DATE_MISSING`.
 
@@ -105,9 +105,9 @@ Example:
 python main.py "looking for CRM" "need marketing agency" "recommendations for HR software"
 ```
 
-### GitHub Actions (every 2 hours)
+### GitHub Actions (every 6 hours)
 
-The workflow runs on **`schedule`: every 2 hours UTC** (`0 */2 * * *`) and supports **Run workflow** manually. Add these secrets:
+The workflow runs on **`schedule`: every 6 hours UTC** (`0 */6 * * *`) and supports **Run workflow** manually. Add these secrets:
 
 **Settings → Secrets and variables → Actions → New repository secret**
 

@@ -15,13 +15,13 @@ APIFY_ACTOR = "datadoping/linkedin-posts-search-scraper"
 FREE_TIER_MAX_KEYWORDS = 4
 FREE_TIER_MAX_POSTS_PER_KEYWORD = 50
 
-# Apify LinkedIn search date filter (actor enum only — no "past 2 hours").
-# Use past-24h when combining with RECENT_POST_MAX_HOURS below.
+# Apify LinkedIn search date filter (actor enum — no sub-hour / arbitrary ranges).
+# Use past-24h with RECENT_POST_MAX_HOURS for tighter windows (e.g. last 6h).
 DATE_FILTER = os.getenv("DATE_FILTER") or "past-24h"
 
 # Keep posts newer than this many hours (parsed from Apify timestamps).
 # Set 0 to disable client-side recency filter.
-RECENT_POST_MAX_HOURS = int(os.getenv("RECENT_POST_MAX_HOURS") or "2")
+RECENT_POST_MAX_HOURS = int(os.getenv("RECENT_POST_MAX_HOURS") or "6")
 
 # If True, posts without a parseable timestamp still pass the recency filter.
 INCLUDE_POST_IF_DATE_MISSING = os.getenv(

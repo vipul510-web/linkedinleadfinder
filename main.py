@@ -349,7 +349,7 @@ def main(keywords: list[str] | None = None):
         send_email(
             subject="LinkedIn Leads: No posts in recency window",
             body=(
-                f"No posts matched the last {RECENT_POST_MAX_HOURS} hour window "
+                f"No posts matched the last {RECENT_POST_MAX_HOURS}-hour window "
                 f"(or timestamps missing — see INCLUDE_POST_IF_DATE_MISSING)."
             ),
         )
