@@ -295,15 +295,29 @@ def format_post_for_email(post: dict) -> str:
 """
 
 
+def parse_email_recipients(raw: str | None) -> list[str]:
+    """Split comma/semicolon-separated addresses; strip whitespace and stray newlines."""
+    if not raw or not raw.strip():
+        return []
+    normalized = raw.replace("\n", ",").replace("\r", ",")
+    out = []
+    for part in normalized.replace(";", ",").split(","):
+        addr = part.strip()
+        if addr:
+            out.append(addr)
+    return out
+
+
 def send_email(subject: str, body: str) -> None:
-    """Send an email with the leads."""
-    if not all([SMTP_USER, SMTP_PASSWORD, EMAIL_TO]):
+    """Send an email with the leads (supports multiple comma-separated recipients)."""
+    recipients = parse_email_recipients(EMAIL_TO)
+    if not all([SMTP_USER, SMTP_PASSWORD]) or not recipients:
         print("Email not configured. Set SMTP_USER, SMTP_PASSWORD, EMAIL_TO in .env")
         return
 
     msg = MIMEMultipart()
     msg["From"] = SMTP_USER
-    msg["To"] = EMAIL_TO
+    msg["To"] = ", ".join(recipients)
     msg["Subject"] = subject
 
     msg.attach(MIMEText(body, "plain"))
@@ -312,9 +326,9 @@ def send_email(subject: str, body: str) -> None:
         server.ehlo()
         server.starttls()
         server.login(SMTP_USER, SMTP_PASSWORD)
-        server.sendmail(SMTP_USER, EMAIL_TO, msg.as_string())
+        server.sendmail(SMTP_USER, recipients, msg.as_string())
 
-    print(f"Email sent to {EMAIL_TO}")
+    print(f"Email sent to {', '.join(recipients)}")
 
 
 def main(keywords: list[str] | None = None):

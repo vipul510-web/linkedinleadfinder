@@ -74,6 +74,8 @@ OPENAI_API_KEY=sk-xxxxxxxxxxxx          # For accurate lead classification (reco
 SMTP_USER=your_email@gmail.com
 SMTP_PASSWORD=your_16_char_app_password
 EMAIL_TO=your_email@gmail.com
+# Multiple recipients: comma or semicolon only (no line breaks), e.g.
+# EMAIL_TO=alice@gmail.com,bob@gmail.com
 ```
 
 For non-Gmail SMTP, also set:
@@ -115,7 +117,7 @@ The workflow runs on **`schedule`: every 2 hours UTC** (`0 */2 * * *`) and suppo
 | `OPENAI_API_KEY` | Yes* | OpenAI key for lead classification (recommended for accuracy) |
 | `SMTP_USER` | Yes | Sender email (e.g. your@gmail.com) |
 | `SMTP_PASSWORD` | Yes | Gmail App Password or SMTP password |
-| `EMAIL_TO` | Yes | Where to send leads |
+| `EMAIL_TO` | Yes | One or more addresses: `a@x.com,b@y.com` (comma-separated, single line) |
 | `SMTP_HOST` | No | Default: smtp.gmail.com |
 | `SMTP_PORT` | No | Default: 587 |
 
